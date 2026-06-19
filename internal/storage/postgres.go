@@ -5,10 +5,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
-	"strings"
 
 	"github.com/Dja-tiger/go-musthave-diploma-tpl/internal/domain"
+	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -290,6 +289,6 @@ WHERE number = $1
 }
 
 func isDuplicate(err error) bool {
-	text := strings.ToLower(fmt.Sprint(err))
-	return strings.Contains(text, "duplicate key") || strings.Contains(text, "unique constraint")
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }

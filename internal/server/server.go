@@ -45,28 +45,16 @@ func New(store Store, tokens *auth.Manager) *Server {
 
 // Handler returns the root HTTP handler with gzip support.
 func (s *Server) Handler() http.Handler {
-	return gzipMiddleware(http.HandlerFunc(s.route))
-}
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /api/user/register", s.register)
+	mux.HandleFunc("POST /api/user/login", s.login)
+	mux.HandleFunc("POST /api/user/orders", s.withAuth(s.uploadOrder))
+	mux.HandleFunc("GET /api/user/orders", s.withAuth(s.listOrders))
+	mux.HandleFunc("GET /api/user/balance", s.withAuth(s.balance))
+	mux.HandleFunc("POST /api/user/balance/withdraw", s.withAuth(s.withdraw))
+	mux.HandleFunc("GET /api/user/withdrawals", s.withAuth(s.withdrawals))
 
-func (s *Server) route(w http.ResponseWriter, r *http.Request) {
-	switch {
-	case r.Method == http.MethodPost && r.URL.Path == "/api/user/register":
-		s.register(w, r)
-	case r.Method == http.MethodPost && r.URL.Path == "/api/user/login":
-		s.login(w, r)
-	case r.Method == http.MethodPost && r.URL.Path == "/api/user/orders":
-		s.withAuth(s.uploadOrder)(w, r)
-	case r.Method == http.MethodGet && r.URL.Path == "/api/user/orders":
-		s.withAuth(s.listOrders)(w, r)
-	case r.Method == http.MethodGet && r.URL.Path == "/api/user/balance":
-		s.withAuth(s.balance)(w, r)
-	case r.Method == http.MethodPost && r.URL.Path == "/api/user/balance/withdraw":
-		s.withAuth(s.withdraw)(w, r)
-	case r.Method == http.MethodGet && r.URL.Path == "/api/user/withdrawals":
-		s.withAuth(s.withdrawals)(w, r)
-	default:
-		http.NotFound(w, r)
-	}
+	return gzipMiddleware(mux)
 }
 
 type credentials struct {

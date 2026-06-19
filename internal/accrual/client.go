@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -132,7 +133,11 @@ func (w *Worker) Run(ctx context.Context) {
 
 func (w *Worker) process(ctx context.Context) time.Duration {
 	numbers, err := w.store.PendingOrders(ctx, 20)
-	if err != nil || len(numbers) == 0 {
+	if err != nil {
+		slog.Warn("failed to fetch pending accrual orders", "error", err)
+		return time.Second
+	}
+	if len(numbers) == 0 {
 		return time.Second
 	}
 
@@ -143,18 +148,26 @@ func (w *Worker) process(ctx context.Context) time.Duration {
 			if errors.As(err, &retry) {
 				return retry.After
 			}
-			_ = w.store.TouchOrderAttempt(ctx, number)
+			if touchErr := w.store.TouchOrderAttempt(ctx, number); touchErr != nil {
+				slog.Warn("failed to touch order accrual attempt", "order", number, "error", touchErr)
+			}
+			slog.Warn("failed to fetch order accrual", "order", number, "error", err)
 			continue
 		}
 		if result == nil {
-			_ = w.store.TouchOrderAttempt(ctx, number)
+			if touchErr := w.store.TouchOrderAttempt(ctx, number); touchErr != nil {
+				slog.Warn("failed to touch order accrual attempt", "order", number, "error", touchErr)
+			}
 			continue
 		}
 		status := normalizeStatus(result.Status)
 		if status == "" {
+			slog.Warn("unknown accrual status", "order", number, "status", result.Status)
 			continue
 		}
-		_ = w.store.UpdateOrderAccrual(ctx, number, status, result.Accrual)
+		if err := w.store.UpdateOrderAccrual(ctx, number, status, result.Accrual); err != nil {
+			slog.Warn("failed to update order accrual", "order", number, "status", status, "error", err)
+		}
 	}
 
 	return time.Second

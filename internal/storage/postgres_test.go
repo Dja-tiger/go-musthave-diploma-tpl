@@ -9,6 +9,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/Dja-tiger/go-musthave-diploma-tpl/internal/domain"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func TestCreateUser(t *testing.T) {
@@ -34,7 +35,7 @@ func TestCreateUserDuplicate(t *testing.T) {
 
 	mock.ExpectQuery("INSERT INTO users").
 		WithArgs("alice", "hash").
-		WillReturnError(errors.New("duplicate key value violates unique constraint"))
+		WillReturnError(&pgconn.PgError{Code: "23505"})
 
 	_, err := store.CreateUser(context.Background(), "alice", "hash")
 	if !errors.Is(err, domain.ErrLoginTaken) {
