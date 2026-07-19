@@ -12,6 +12,7 @@
 *.out
 
 # Binaries
+/gophermart
 cmd/gophermart/main
 cmd/gophermart/gophermart
 
